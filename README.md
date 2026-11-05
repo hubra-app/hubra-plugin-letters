@@ -90,11 +90,18 @@ checkout without installing it.
 ## Release
 
 Bump `version` in `plugin.yaml`, add a `## <version>` section to
-`CHANGELOG.md`, merge, then publish a GitHub release tagged `v<version>`
-(`gh release create v1.0.0 --target main --notes ""`). The workflow tests the
-plugin and builds its frontend, the `plugin-signing` job signs it after your
-approval, and `<id>-<version>.zip` plus its `.sha256` are attached to the
-release. The template itself is never signed.
+`CHANGELOG.md` and merge. Then tag the merged commit on main and push the tag:
+
+```sh
+git switch main && git pull
+git tag v<version> && git push origin v<version>
+```
+
+The workflow tests the plugin and builds its frontend, the `plugin-signing`
+job signs it after your approval, and only then is the GitHub release
+`v<version>` published, with `<id>-<version>.zip` and its `.sha256` attached. Files
+listed in `.releaseignore` stay out of the zip. Releases are immutable, so a
+published version never changes: fix a bad one with a new version. The template itself is never signed.
 
 Migrations must keep the previous version working (add columns and tables,
 drop them a release later): a rollback in the plugin catalogue does not undo

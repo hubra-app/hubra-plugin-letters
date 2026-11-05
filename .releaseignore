@@ -5,3 +5,4 @@
 # The repository's own files (.git, .github, .gitignore, .gitattributes, this file) never go in.
 tests/
 frontend/src/
+docs/

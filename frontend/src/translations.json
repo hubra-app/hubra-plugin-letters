@@ -1,28 +1,196 @@
 {
   "en-GB": {
-    "shell": { "nav": { "example": "Notice board" } },
-    "example": {
-      "title": "Notice board",
-      "desc": "Short notes for the whole club",
-      "placeholder": "Write a note…",
-      "add": "Post note",
-      "saved": "Note posted",
-      "delete": "Delete note",
-      "loading": "Loading…",
-      "empty": "No notes yet."
+    "shell": {
+      "nav": {
+        "letters": "Letters"
+      }
+    },
+    "roles": {
+      "perms": {
+        "letters_letters_update": "Write letters, print them and send them by post"
+      }
+    },
+    "letters": {
+      "title": "Letters",
+      "desc": "Serial letters on paper: print them yourself or have Pingen post them.",
+      "new": "New letter",
+      "none": "No letters yet",
+      "noneHint": "Write the invitation to the general meeting for members who read no e-mail.",
+      "editedOn": "Draft, edited {{when}}",
+      "sentOn_one": "{{when}}, {{count}} letter",
+      "sentOn_other": "{{when}}, {{count}} letters",
+      "failedCount_one": "{{count}} failed",
+      "failedCount_other": "{{count}} failed",
+      "status": {
+        "draft": "Draft",
+        "sending": "Posting",
+        "sent": "Posted",
+        "printed": "Printed"
+      },
+      "subject": "Subject",
+      "body": "Letter",
+      "bodyHint": "Liebe/r {vorname}\n\nAn empty line starts a new paragraph.",
+      "insert": "Insert:",
+      "boldHint": "**bold**",
+      "to": "To",
+      "audience": {
+        "no_email": "Without e-mail",
+        "all": "All members",
+        "group": "A group",
+        "picked": "Chosen members"
+      },
+      "audienceHint": {
+        "no_email": "Active members whose e-mail address isn't confirmed, so club mail doesn't reach them.",
+        "all": "Every active member.",
+        "group": "The active members of one group.",
+        "picked": "Only the members you pick."
+      },
+      "group": "Group",
+      "addMember": "Add a member",
+      "remove": "Remove",
+      "save": "Save",
+      "create": "Save draft",
+      "saved": "Saved",
+      "more": "More",
+      "delete": "Delete",
+      "saveFirst": "Save the draft to see who gets it and how it looks.",
+      "recipients_one": "{{count}} recipient",
+      "recipients_other": "{{count}} recipients",
+      "unsaved": "Save first: the list and preview show the saved letter.",
+      "missing_one": "{{count}} member has no complete postal address and gets nothing:",
+      "missing_other": "{{count}} members have no complete postal address and get nothing:",
+      "nobody": "Nobody with a postal address.",
+      "download": "Download PDF",
+      "markPrinted": "Mark as printed",
+      "send": "Send by post",
+      "pingenHint": "To send by post, enter the club's Pingen API client under Settings › Modules & Plugins › Letters.",
+      "sendTitle_one": "Send {{count}} letter by post?",
+      "sendTitle_other": "Send {{count}} letters by post?",
+      "sendBody": "Pingen prints, puts in envelopes and posts each letter. This costs money and can't be undone.",
+      "sentToast": "Handed to Pingen; they go out within a few minutes",
+      "printedTitle": "Mark as printed?",
+      "printedBody_one": "Records that you printed and posted {{count}} letter yourself. The letter can't be changed afterwards.",
+      "printedBody_other": "Records that you printed and posted {{count}} letters yourself. The letter can't be changed afterwards.",
+      "printedToast": "Marked as printed",
+      "deleteTitle": "Delete this letter?",
+      "deleteBody": "The draft is gone for good.",
+      "deleteSentBody": "The record of who got it is deleted too. Letters already posted stay posted.",
+      "preview": "Preview",
+      "refresh": "Refresh",
+      "printedOn_one": "Printed {{when}}, {{count}} letter",
+      "printedOn_other": "Printed {{when}}, {{count}} letters",
+      "postedOn_one": "Sent by post {{when}}, {{count}} letter",
+      "postedOn_other": "Sent by post {{when}}, {{count}} letters",
+      "failedHint_one": "{{count}} letter couldn't be posted.",
+      "failedHint_other": "{{count}} letters couldn't be posted.",
+      "retry": "Try again",
+      "retried": "Queued again",
+      "recipient": "Recipient",
+      "address": "Address",
+      "state": "State",
+      "item": {
+        "queued": "Waiting",
+        "sent": "With Pingen",
+        "failed": "Failed",
+        "printed": "Printed"
+      }
     }
   },
   "de-CH": {
-    "shell": { "nav": { "example": "Pinnwand" } },
-    "example": {
-      "title": "Pinnwand",
-      "desc": "Kurze Notizen für den ganzen Verein",
-      "placeholder": "Notiz schreiben …",
-      "add": "Notiz posten",
-      "saved": "Notiz gepostet",
-      "delete": "Notiz löschen",
-      "loading": "Wird geladen …",
-      "empty": "Noch keine Notizen."
+    "shell": {
+      "nav": {
+        "letters": "Briefe"
+      }
+    },
+    "roles": {
+      "perms": {
+        "letters_letters_update": "Briefe schreiben, drucken und per Post senden"
+      }
+    },
+    "letters": {
+      "title": "Briefe",
+      "desc": "Serienbriefe auf Papier: selbst drucken oder von Pingen verschicken lassen.",
+      "new": "Neuer Brief",
+      "none": "Noch keine Briefe",
+      "noneHint": "Schreib die Einladung zur GV für Mitglieder, die keine E-Mails lesen.",
+      "editedOn": "Entwurf, bearbeitet {{when}}",
+      "sentOn_one": "{{when}}, {{count}} Brief",
+      "sentOn_other": "{{when}}, {{count}} Briefe",
+      "failedCount_one": "{{count}} fehlgeschlagen",
+      "failedCount_other": "{{count}} fehlgeschlagen",
+      "status": {
+        "draft": "Entwurf",
+        "sending": "Wird versandt",
+        "sent": "Versandt",
+        "printed": "Gedruckt"
+      },
+      "subject": "Betreff",
+      "body": "Brief",
+      "bodyHint": "Liebe/r {vorname}\n\nEine leere Zeile beginnt einen neuen Absatz.",
+      "insert": "Einfügen:",
+      "boldHint": "**fett**",
+      "to": "An",
+      "audience": {
+        "no_email": "Ohne E-Mail",
+        "all": "Alle Mitglieder",
+        "group": "Eine Gruppe",
+        "picked": "Ausgewählte"
+      },
+      "audienceHint": {
+        "no_email": "Aktive Mitglieder ohne bestätigte E-Mail-Adresse, die Vereinsmails also nicht erreichen.",
+        "all": "Alle aktiven Mitglieder.",
+        "group": "Die aktiven Mitglieder einer Gruppe.",
+        "picked": "Nur die Mitglieder, die du auswählst."
+      },
+      "group": "Gruppe",
+      "addMember": "Mitglied hinzufügen",
+      "remove": "Entfernen",
+      "save": "Speichern",
+      "create": "Entwurf speichern",
+      "saved": "Gespeichert",
+      "more": "Mehr",
+      "delete": "Löschen",
+      "saveFirst": "Speichere den Entwurf, um zu sehen, wer ihn bekommt und wie er aussieht.",
+      "recipients_one": "{{count}} Empfänger:in",
+      "recipients_other": "{{count}} Empfänger:innen",
+      "unsaved": "Zuerst speichern: Liste und Vorschau zeigen den gespeicherten Brief.",
+      "missing_one": "{{count}} Mitglied hat keine vollständige Postadresse und bekommt nichts:",
+      "missing_other": "{{count}} Mitglieder haben keine vollständige Postadresse und bekommen nichts:",
+      "nobody": "Niemand mit Postadresse.",
+      "download": "PDF herunterladen",
+      "markPrinted": "Als gedruckt markieren",
+      "send": "Per Post senden",
+      "pingenHint": "Für den Postversand das Pingen-API-Konto des Vereins unter Einstellungen › Module & Plugins › Briefe eintragen.",
+      "sendTitle_one": "{{count}} Brief per Post senden?",
+      "sendTitle_other": "{{count}} Briefe per Post senden?",
+      "sendBody": "Pingen druckt, kuvertiert und verschickt jeden Brief. Das kostet Geld und lässt sich nicht rückgängig machen.",
+      "sentToast": "An Pingen übergeben; sie gehen in wenigen Minuten raus",
+      "printedTitle": "Als gedruckt markieren?",
+      "printedBody_one": "Hält fest, dass du {{count}} Brief selbst gedruckt und verschickt hast. Der Brief lässt sich danach nicht mehr ändern.",
+      "printedBody_other": "Hält fest, dass du {{count}} Briefe selbst gedruckt und verschickt hast. Der Brief lässt sich danach nicht mehr ändern.",
+      "printedToast": "Als gedruckt markiert",
+      "deleteTitle": "Brief löschen?",
+      "deleteBody": "Der Entwurf ist dann endgültig weg.",
+      "deleteSentBody": "Auch die Liste, wer ihn bekommen hat, wird gelöscht. Verschickte Briefe bleiben verschickt.",
+      "preview": "Vorschau",
+      "refresh": "Aktualisieren",
+      "printedOn_one": "Gedruckt {{when}}, {{count}} Brief",
+      "printedOn_other": "Gedruckt {{when}}, {{count}} Briefe",
+      "postedOn_one": "Per Post {{when}}, {{count}} Brief",
+      "postedOn_other": "Per Post {{when}}, {{count}} Briefe",
+      "failedHint_one": "{{count}} Brief konnte nicht verschickt werden.",
+      "failedHint_other": "{{count}} Briefe konnten nicht verschickt werden.",
+      "retry": "Nochmals versuchen",
+      "retried": "Wieder eingereiht",
+      "recipient": "Empfänger:in",
+      "address": "Adresse",
+      "state": "Stand",
+      "item": {
+        "queued": "Wartet",
+        "sent": "Bei Pingen",
+        "failed": "Fehlgeschlagen",
+        "printed": "Gedruckt"
+      }
     }
   }
 }

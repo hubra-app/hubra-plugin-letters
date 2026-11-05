@@ -1,20 +1,16 @@
-id: example
-name: Example
-version: "0.1.0"
+id: letters
+name: Letters
+version: "1.0.0"
 hubra: ">=0.2,<1"
-description: "A starting point for a Hubra plugin: one table, an API, a screen and a test."
+description: "Serial letters for members without e-mail: written in Hubra, printed as one PDF for window envelopes, or sent by post through Pingen."
 author: Hubra
-homepage: https://github.com/hubra-app/hubra-plugins-template
-license: AGPL-3.0-or-later
-tags: [example]
-package: hubra_example
-modules: [example]
+homepage: https://github.com/hubra-app/hubra-plugin-letters
+tags: [letters, post, print, pdf, pingen]
+package: hubra_letters
+modules: [letters]
 requires: [members]
 migrations: migrations
 frontend: frontend/dist/plugin.js
 # The areas this plugin extends; Hubra refuses a plugin that touches one it
 # doesn't list. See docs/plugins.md in hubra-app/hubra.
-uses: [routes, tables, settings, nav, frontend]
-# Other plugins it needs, with a version range, e.g.
-# depends:
-#   finance: ">=2.0,<3"
+uses: [routes, tables, settings, jobs, nav, frontend]

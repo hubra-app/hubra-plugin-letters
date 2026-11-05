@@ -1,22 +1,17 @@
 import { registerPlugin } from '@hubra/plugin-sdk'
-import { IconNote } from '@tabler/icons-react'
-import { NotesScreen } from './NotesScreen'
+import { IconMailForward } from '@tabler/icons-react'
+import { LetterScreen } from './LetterScreen'
+import { LettersScreen } from './LettersScreen'
 import translations from './translations.json'
 
-// Everything here shows only while the module is on for the club and the
-// person has `perm`. Other places to add things: `tabs` (a tab on a built-in
-// screen) and `slots` (account.cards, inventory.item, settings.module.actions).
 registerPlugin({
-  id: 'example',
+  id: 'letters',
   routes: [
-    {
-      path: 'example',
-      module: 'example',
-      perm: 'example.notes.read',
-      component: NotesScreen,
-    },
+    { path: 'letters', module: 'letters', perm: 'letters.letters.update', component: LettersScreen },
+    { path: 'letters/new', module: 'letters', perm: 'letters.letters.update', component: LetterScreen },
+    { path: 'letters/:id', module: 'letters', perm: 'letters.letters.update', component: LetterScreen },
   ],
-  // The nav entry in hubra_example/__init__.py names this icon.
-  icons: { note: IconNote },
+  // The nav entry in hubra_letters/__init__.py names this icon.
+  icons: { 'mail-forward': IconMailForward },
   translations,
 })

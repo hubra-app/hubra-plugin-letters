@@ -5,6 +5,7 @@ hubra: ">=0.2,<1"
 description: "Serial letters for members without e-mail: written in Hubra, printed as one PDF for window envelopes, or sent by post through Pingen."
 author: Hubra
 homepage: https://github.com/hubra-app/hubra-plugin-letters
+license: AGPL-3.0-or-later
 tags: [letters, post, print, pdf, pingen]
 package: hubra_letters
 modules: [letters]

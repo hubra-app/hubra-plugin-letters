@@ -6,3 +6,4 @@
 tests/
 frontend/src/
 docs/
+.mason.toml

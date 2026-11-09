@@ -15,6 +15,9 @@ from hubra.core.modules import Blueprint, Module, NavItem, Schedule, SettingFiel
 
 module = Module(
     code="letters",
+    # Access the standard roles get when a club first switches it on
+    # (docs/roles.md in hubra-app/hubra).
+    role_defaults={"board": "edit", "secretary": "all"},
     name="Letters",
     description="Serial letters as PDF or by post (Pingen)",
     default_enabled=False,

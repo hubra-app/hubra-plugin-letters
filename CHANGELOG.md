@@ -1,5 +1,11 @@
 # Letters
 
+## Unreleased
+
+- The menu entry moves to the new sidebar area **Kommunikation**, next to Mail,
+  Messengers and Inbox. Needs a Hubra with that area (after 0.2.5); older
+  versions show it under a heading of its own.
+
 ## 1.1.0
 
 - Gives the standard roles access when a club first switches it on (`role_defaults`, docs/roles.md in hubra-app/hubra): Vorstand Bearbeiten, Aktuar/in Alles. Roles without access don't see it; their own data from it stays on their profile. Needs Hubra 0.2.5 or later.

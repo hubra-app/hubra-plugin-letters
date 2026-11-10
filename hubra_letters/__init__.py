@@ -30,7 +30,7 @@ module = Module(
             "/app/letters",
             "shell.nav.letters",
             "mail-forward",
-            section="more",
+            section="communication",
             order=33,
             perms=("letters.letters.update",),
         ),

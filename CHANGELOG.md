@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The menu entry moves to the new sidebar area **Kommunikation**, next to Mail,
+  Messengers and Inbox. Needs a Hubra with that area (after 0.2.5); older
+  versions show it under a heading of its own.
 - The Pingen hint points at Einstellungen › Module › Briefe (the tab is called Module). German: "Empfänger/in" like the other gender forms in Hubra.
 
 ## 1.1.0

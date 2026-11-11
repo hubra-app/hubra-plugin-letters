@@ -21,8 +21,10 @@ A plugin for [Hubra](https://hubra.club). Serial letters for members who read no
   bank address (the bank details in the club settings). The recipient's address sits in the
   window: right (Swiss C5/C6, the default) or left (DIN 5008), set in the
   module's settings.
-- **Print it yourself.** Download every letter in one PDF, one page per
-  member, and mark the letter as printed. Hubra keeps who got it.
+- **Print it yourself.** Hubra makes every letter into one PDF in the
+  background, one page per member, and notifies you when it's ready (kept
+  7 days). Download it, print it and mark the letter as printed. Hubra keeps
+  who got it.
 - **Or by post through Pingen.** Enter the club's own Pingen API client
   (client ID, secret, organisation ID) in the module's settings. Pressing
   **Send by post** queues one letter per member; a job hands them to Pingen

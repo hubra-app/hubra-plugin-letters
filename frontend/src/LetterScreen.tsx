@@ -42,6 +42,7 @@ import {
 import {
   AUDIENCES,
   QK,
+  buildAll,
   deleteLetter,
   downloadAll,
   errorText,
@@ -92,8 +93,9 @@ export function LetterScreen() {
     queryKey: QK.letter(id ?? 0),
     queryFn: () => getLetter(id!),
     enabled: !!id,
-    // While Pingen posts the letters, their state changes by itself.
-    refetchInterval: (q) => (q.state.data?.status === 'sending' ? 15_000 : false),
+    // While Pingen posts the letters or the PDF is built, the state changes by itself.
+    refetchInterval: (q) =>
+      q.state.data?.pdf?.status === 'building' ? 3_000 : q.state.data?.status === 'sending' ? 15_000 : false,
   })
 
   const err = options.error || letter.error
@@ -323,14 +325,26 @@ function Editor({ letter, options }: { letter?: LetterDetail; options: Options }
                 {recipients.map((r) => r.name).join(', ') || t('letters.nobody')}
               </Text>
               <Group gap="xs" mt="md">
-                <Button
-                  variant="default"
-                  leftSection={<IconDownload size={16} />}
-                  disabled={!recipients.length || !saved}
-                  onClick={() => run(() => downloadAll(letter.id, letter.subject))}
-                >
-                  {t('letters.download')}
-                </Button>
+                {letter.pdf?.status === 'ready' ? (
+                  <Button
+                    variant="default"
+                    leftSection={<IconDownload size={16} />}
+                    disabled={!saved}
+                    onClick={() => run(() => downloadAll(letter.id, letter.subject))}
+                  >
+                    {t('letters.download', { count: letter.pdf.count ?? 0 })}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    leftSection={<IconDownload size={16} />}
+                    loading={letter.pdf?.status === 'building'}
+                    disabled={!recipients.length || !saved}
+                    onClick={() => act(buildAll, t('letters.buildToast'))}
+                  >
+                    {t('letters.build')}
+                  </Button>
+                )}
                 <Button
                   variant="default"
                   leftSection={<IconPrinter size={16} />}
@@ -347,6 +361,24 @@ function Editor({ letter, options }: { letter?: LetterDetail; options: Options }
                   {t('letters.send')}
                 </Button>
               </Group>
+              {letter.pdf?.status === 'building' && (
+                <Text size="xs" c="dimmed" mt={6}>
+                  {t('letters.building')}
+                </Text>
+              )}
+              {letter.pdf?.status === 'ready' && (
+                <Text size="xs" c="dimmed" mt={6}>
+                  {t('letters.builtAt', { when: formatDateTime(letter.pdf.at ?? '') })}{' '}
+                  <Anchor size="xs" onClick={() => act(buildAll, t('letters.buildToast'))}>
+                    {t('letters.rebuild')}
+                  </Anchor>
+                </Text>
+              )}
+              {letter.pdf?.status === 'failed' && (
+                <Text size="xs" c="red" mt={6}>
+                  {letter.pdf.error}
+                </Text>
+              )}
               {!options.pingen && (
                 <Text size="xs" c="dimmed" mt={6}>
                   {t('letters.pingenHint')}

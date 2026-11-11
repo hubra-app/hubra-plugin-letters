@@ -25,7 +25,11 @@ export interface Letter {
   createdAt: string | null
   updatedAt: string | null
   items: Partial<Record<ItemStatus, number>>
+  /** The print PDF of every letter, built in the background. */
+  pdf: { status: PdfStatus | null; count: number | null; error: string | null; at: string | null }
 }
+
+export type PdfStatus = 'building' | 'ready' | 'failed'
 
 export interface LetterDetail extends Letter {
   recipients?: { memberId: number; name: string; address: string[] }[]
@@ -71,6 +75,8 @@ export const saveLetter = (body: Draft, id?: number) =>
 export const deleteLetter = (id: number) => apiFetch<void>(`${BASE}/letters/${id}`, { method: 'DELETE' })
 export const markPrinted = (id: number) => apiFetch<LetterDetail>(`${BASE}/letters/${id}/printed`, json('POST', {}))
 export const sendByPost = (id: number) => apiFetch<LetterDetail>(`${BASE}/letters/${id}/send`, json('POST', {}))
+/** Starts building the PDF of every letter; the letter's `pdf` tells when it's ready. */
+export const buildAll = (id: number) => apiFetch<LetterDetail>(`${BASE}/letters/${id}/letters.pdf`, json('POST', {}))
 export const retryFailed = (id: number) => apiFetch<LetterDetail>(`${BASE}/letters/${id}/retry`, json('POST', {}))
 
 async function pdfBlob(path: string) {

@@ -1,4 +1,4 @@
-"""Celery tasks: hand queued letters to Pingen, forget old addresses."""
+"""Celery tasks: post through Pingen, build the print PDF, forget old data."""
 
 from __future__ import annotations
 
@@ -25,5 +25,16 @@ def forget() -> dict:
 
     n = services.forget_addresses()
     orphans = services.purge_orphans()
+    pdfs = services.drop_old_pdfs()
     db.session.commit()
-    return {"forgotten": n, "orphans": orphans}
+    return {"forgotten": n, "orphans": orphans, "pdfs": pdfs}
+
+
+@celery_app.task(name="hubra_letters.tasks.build_pdf")
+def build_pdf(letter_id: int) -> str:
+    """Queued from a request, so it runs in that club (core sets the schema)."""
+    from hubra.core.extensions import db
+
+    status = services.build_pdf(int(letter_id))
+    db.session.commit()
+    return status

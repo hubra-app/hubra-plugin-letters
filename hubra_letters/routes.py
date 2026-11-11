@@ -16,7 +16,7 @@ POST   /letters/<id>/retry         queues the failed letters again
 from __future__ import annotations
 
 from flask import Blueprint, Response, jsonify, request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from hubra.core.auth.helpers import get_current_member
 from hubra.core.errors import api_error
@@ -229,6 +229,8 @@ def delete_letter(letter_id: int):
     if letter.status == "sending":
         return api_error("LETTER_SENDING", "Pingen is still posting this letter.", 409)
     log_audit(member.id, "letters.delete", "LettersLetter", letter.id, letter.subject)
+    # Explicitly: inside a club schema the foreign key's CASCADE doesn't exist.
+    db.session.execute(delete(LettersItem).where(LettersItem.letter_id == letter.id))
     db.session.delete(letter)
     db.session.commit()
     return "", 204

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from hubra.core.extensions import db
 from hubra.core.models.group import GroupMembership
@@ -278,3 +278,43 @@ def forget_addresses(today: datetime | None = None) -> int:
         .execution_options(synchronize_session=False)
     )
     return done.rowcount or 0
+
+
+def purge_orphans() -> int:
+    """Clears what a deleted member or letter left behind.
+
+    Club schemas are copies of the public tables without their foreign keys,
+    so ON DELETE CASCADE / SET NULL never runs inside a club: a member
+    deleted on request would keep their name and address here. Returns how
+    many rows were changed.
+    """
+    members = select(Member.id)
+    n = (
+        db.session.execute(
+            delete(LettersItem)
+            .where(LettersItem.letter_id.notin_(select(LettersLetter.id)))
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    n += (
+        db.session.execute(
+            update(LettersItem)
+            .where(LettersItem.member_id.is_not(None))
+            .where(LettersItem.member_id.notin_(members))
+            .values(member_id=None, name="", address="", error=None)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    n += (
+        db.session.execute(
+            update(LettersLetter)
+            .where(LettersLetter.created_by.is_not(None))
+            .where(LettersLetter.created_by.notin_(members))
+            .values(created_by=None)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    return n

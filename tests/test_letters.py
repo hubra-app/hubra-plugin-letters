@@ -293,3 +293,29 @@ def test_old_addresses_are_forgotten(app, client, db, club, monkeypatch):
     assert item.address == "" and item.name == "Test Max"
     sent = client.get(f"{BASE}/letters/{letter['id']}").get_json()["sent"]
     assert sent[0]["address"] == [] and sent[0]["name"] == "Test Max"
+
+
+def test_deleted_member_and_letter_leave_nothing(app, client, db, club):
+    from hubra_letters import services
+    from hubra_letters.models import LettersItem
+    from sqlalchemy import text
+
+    _login(client, "bea@test.ch")
+    letter = client.post(
+        f"{BASE}/letters", json={"subject": "GV", "body": "Hallo"}
+    ).get_json()
+    client.post(f"{BASE}/letters/{letter['id']}/printed")
+
+    # As in a club schema: no foreign key does it for us.
+    with app.test_request_context():
+        db.session.execute(text("PRAGMA foreign_keys=OFF"))
+        db.session.execute(
+            text("DELETE FROM members WHERE id = :id"), {"id": club["max"]}
+        )
+        assert services.purge_orphans() == 1
+        db.session.commit()
+    item = db.session.query(LettersItem).one()
+    assert (item.member_id, item.name, item.address) == (None, "", "")
+
+    assert client.delete(f"{BASE}/letters/{letter['id']}").status_code == 204
+    assert db.session.query(LettersItem).count() == 0

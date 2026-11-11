@@ -24,5 +24,6 @@ def forget() -> dict:
     from hubra.core.extensions import db
 
     n = services.forget_addresses()
+    orphans = services.purge_orphans()
     db.session.commit()
-    return {"forgotten": n}
+    return {"forgotten": n, "orphans": orphans}

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 
 from hubra.core.extensions import db
 from hubra.core.models.group import GroupMembership
@@ -14,6 +14,7 @@ from . import pingen, render
 from .models import LettersItem, LettersLetter
 
 AUDIENCES = ("no_email", "all", "group", "picked")
+KEEP_MONTHS = 12
 MAX_TRIES = 3
 PER_RUN = 25
 
@@ -168,31 +169,46 @@ def queue(letter: LettersLetter, people: list[render.Recipient], status: str) ->
     return len(people)
 
 
-def post_queued() -> dict:
-    """Hands queued letters to Pingen, a few per run. Called every minute."""
-    done = {"sent": 0, "failed": 0}
-    items = list(
-        db.session.scalars(
-            select(LettersItem)
-            .where(LettersItem.status == "queued")
-            .order_by(LettersItem.id)
-            .limit(PER_RUN)
-        )
+def _claim(skip: list[int]) -> LettersItem | None:
+    """The next queued letter no other run is working on.
+
+    The row stays locked until this run commits, so a second run of the
+    job (the last one took longer than a minute) skips it instead of
+    posting the same letter twice.
+    """
+    query = select(LettersItem).where(LettersItem.status == "queued")
+    if skip:
+        query = query.where(LettersItem.id.notin_(skip))
+    return db.session.scalar(
+        query.order_by(LettersItem.id).limit(1).with_for_update(skip_locked=True)
     )
-    if not items:
-        return done
+
+
+def post_queued() -> dict:
+    """Hands queued letters to Pingen, a few per run. Called every minute.
+
+    Each letter is committed on its own right after Pingen took it, so a
+    crash half way through doesn't leave posted letters queued to go again.
+    """
+    done = {"sent": 0, "failed": 0}
     cfg = pingen_config()
     head, side = club(), window()
-    letters: dict[int, LettersLetter] = {}
-    for item in items:
-        letter = letters.setdefault(
-            item.letter_id, db.session.get(LettersLetter, item.letter_id)
-        )
+    touched: set[int] = set()
+    seen: list[int] = []
+    while len(seen) < PER_RUN:
+        item = _claim(seen)
+        if item is None:
+            break
+        seen.append(item.id)
+        touched.add(item.letter_id)
+        letter = db.session.get(LettersLetter, item.letter_id)
         item.tries += 1
         item.updated_at = now()
-        if cfg is None:
-            item.status, item.error = "failed", "Pingen is not set up"
+        if cfg is None or letter is None:
+            item.status = "failed"
+            item.error = "Pingen is not set up" if cfg is None else "Letter is gone"
             done["failed"] += 1
+            db.session.commit()
             continue
         lines = item.address.split("\n")
         first, _, last = (lines[0] if lines else "").partition(" ")
@@ -215,9 +231,12 @@ def post_queued() -> dict:
             if item.tries >= MAX_TRIES:
                 item.status = "failed"
                 done["failed"] += 1
-    for letter in letters.values():
+        db.session.commit()
+    for letter_id in touched:
+        letter = db.session.get(LettersLetter, letter_id)
         if (
             letter is not None
+            and letter.status == "sending"
             and db.session.scalar(
                 select(LettersItem.id)
                 .where(LettersItem.letter_id == letter.id)
@@ -228,3 +247,74 @@ def post_queued() -> dict:
         ):
             letter.status = "sent"
     return done
+
+
+def keep_months() -> int:
+    """How long sent letters keep their addresses; 0 keeps them for good."""
+    try:
+        months = int(config().get("keep_addresses_months", KEEP_MONTHS))
+    except (TypeError, ValueError):
+        months = KEEP_MONTHS
+    return max(months, 0)
+
+
+def forget_addresses(today: datetime | None = None) -> int:
+    """Deletes the postal addresses of letters sent longer ago than the club
+    keeps them (data protection: only as long as needed). The name stays, so
+    the list of who got a letter is still there. Returns how many."""
+    months = keep_months()
+    if not months:
+        return 0
+    before = (today or now()) - timedelta(days=round(months * 30.44))
+    old = select(LettersLetter.id).where(
+        LettersLetter.sent_at.is_not(None), LettersLetter.sent_at < before
+    )
+    done = db.session.execute(
+        update(LettersItem)
+        .where(LettersItem.letter_id.in_(old))
+        .where(LettersItem.status != "queued")
+        .where(LettersItem.address != "")
+        .values(address="", error=None)
+        .execution_options(synchronize_session=False)
+    )
+    return done.rowcount or 0
+
+
+def purge_orphans() -> int:
+    """Clears what a deleted member or letter left behind.
+
+    Club schemas are copies of the public tables without their foreign keys,
+    so ON DELETE CASCADE / SET NULL never runs inside a club: a member
+    deleted on request would keep their name and address here. Returns how
+    many rows were changed.
+    """
+    members = select(Member.id)
+    n = (
+        db.session.execute(
+            delete(LettersItem)
+            .where(LettersItem.letter_id.notin_(select(LettersLetter.id)))
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    n += (
+        db.session.execute(
+            update(LettersItem)
+            .where(LettersItem.member_id.is_not(None))
+            .where(LettersItem.member_id.notin_(members))
+            .values(member_id=None, name="", address="", error=None)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    n += (
+        db.session.execute(
+            update(LettersLetter)
+            .where(LettersLetter.created_by.is_not(None))
+            .where(LettersLetter.created_by.notin_(members))
+            .values(created_by=None)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
+    return n

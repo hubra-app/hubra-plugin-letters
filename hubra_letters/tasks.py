@@ -1,4 +1,4 @@
-"""Celery task: hand queued letters to Pingen."""
+"""Celery tasks: hand queued letters to Pingen, forget old addresses."""
 
 from __future__ import annotations
 
@@ -16,3 +16,14 @@ def post() -> dict:
     done = services.post_queued()
     db.session.commit()
     return done
+
+
+@celery_app.task(name="hubra_letters.tasks.forget")
+@per_tenant_job("letters")
+def forget() -> dict:
+    from hubra.core.extensions import db
+
+    n = services.forget_addresses()
+    orphans = services.purge_orphans()
+    db.session.commit()
+    return {"forgotten": n, "orphans": orphans}

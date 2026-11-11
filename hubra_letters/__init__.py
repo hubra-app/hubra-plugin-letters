@@ -73,8 +73,21 @@ module = Module(
             label="Pingen test system",
             description="Send to Pingen's staging system: nothing is printed",
         ),
+        SettingField(
+            "keep_addresses_months",
+            "int",
+            default=12,
+            label="Keep addresses (months)",
+            description=(
+                "After this many months the postal addresses of sent letters are"
+                " deleted; who got the letter stays. 0 keeps them."
+            ),
+        ),
     ),
     tasks=("hubra_letters.tasks",),
-    schedule=(Schedule("letters-post-minutely", "hubra_letters.tasks.post", 60.0),),
+    schedule=(
+        Schedule("letters-post-minutely", "hubra_letters.tasks.post", 60.0),
+        Schedule("letters-forget-daily", "hubra_letters.tasks.forget", 86400.0),
+    ),
     tables=("letters_letters", "letters_items"),
 )

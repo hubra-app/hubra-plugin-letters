@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Postal addresses of sent letters are deleted after 12 months (setting
+  "Keep addresses", 0 keeps them); who got the letter stays. Runs daily.
+- Deleting a letter deletes its recipient list too, and the daily job clears
+  the name and address of members who were deleted (club schemas have no
+  foreign keys, so the database didn't do it).
+- Security: the Pingen token is cached per client ID *and* secret, a letter
+  is never posted twice when the job overlaps or a click repeats, Pingen
+  uploads only over HTTPS, and editing or retrying a letter is in the audit log.
 - The menu entry moves to the new sidebar area **Kommunikation**, next to Mail,
   Messengers and Inbox. Needs a Hubra with that area (after 0.2.5); older
   versions show it under a heading of its own.

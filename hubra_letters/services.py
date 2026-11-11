@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from hubra.core.extensions import db
 from hubra.core.models.group import GroupMembership
@@ -14,6 +14,7 @@ from . import pingen, render
 from .models import LettersItem, LettersLetter
 
 AUDIENCES = ("no_email", "all", "group", "picked")
+KEEP_MONTHS = 12
 MAX_TRIES = 3
 PER_RUN = 25
 
@@ -246,3 +247,34 @@ def post_queued() -> dict:
         ):
             letter.status = "sent"
     return done
+
+
+def keep_months() -> int:
+    """How long sent letters keep their addresses; 0 keeps them for good."""
+    try:
+        months = int(config().get("keep_addresses_months", KEEP_MONTHS))
+    except (TypeError, ValueError):
+        months = KEEP_MONTHS
+    return max(months, 0)
+
+
+def forget_addresses(today: datetime | None = None) -> int:
+    """Deletes the postal addresses of letters sent longer ago than the club
+    keeps them (data protection: only as long as needed). The name stays, so
+    the list of who got a letter is still there. Returns how many."""
+    months = keep_months()
+    if not months:
+        return 0
+    before = (today or now()) - timedelta(days=round(months * 30.44))
+    old = select(LettersLetter.id).where(
+        LettersLetter.sent_at.is_not(None), LettersLetter.sent_at < before
+    )
+    done = db.session.execute(
+        update(LettersItem)
+        .where(LettersItem.letter_id.in_(old))
+        .where(LettersItem.status != "queued")
+        .where(LettersItem.address != "")
+        .values(address="", error=None)
+        .execution_options(synchronize_session=False)
+    )
+    return done.rowcount or 0

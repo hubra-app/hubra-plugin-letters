@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Postal addresses of sent letters are deleted after 12 months (setting
+  "Keep addresses", 0 keeps them); who got the letter stays. Runs daily.
+- Security: the Pingen token is cached per client ID *and* secret, a letter
+  is never posted twice when the job overlaps or a click repeats, Pingen
+  uploads only over HTTPS, and editing or retrying a letter is in the audit log.
 - The menu entry moves to the new sidebar area **Kommunikation**, next to Mail,
   Messengers and Inbox. Needs a Hubra with that area (after 0.2.5); older
   versions show it under a heading of its own.

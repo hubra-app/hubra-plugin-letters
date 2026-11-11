@@ -263,3 +263,33 @@ def test_send_twice_queues_once(app, client, db, club, monkeypatch):
     again = client.post(f"{BASE}/letters/{letter['id']}/send")
     assert again.status_code == 409 and again.get_json()["error"] == "LETTER_SENT"
     assert db.session.query(LettersItem).count() == 1
+
+
+def test_old_addresses_are_forgotten(app, client, db, club, monkeypatch):
+    from datetime import timedelta
+
+    from hubra_letters import services
+    from hubra_letters.models import LettersItem, LettersLetter
+
+    _login(client, "bea@test.ch")
+    letter = client.post(
+        f"{BASE}/letters", json={"subject": "GV", "body": "Hallo"}
+    ).get_json()
+    client.post(f"{BASE}/letters/{letter['id']}/printed")
+    row = db.session.get(LettersLetter, letter["id"])
+
+    cfg = {"keep_addresses_months": 12}
+    monkeypatch.setattr(services, "config", lambda: cfg)
+    with app.test_request_context():
+        assert services.forget_addresses() == 0  # just sent
+        row.sent_at = services.now() - timedelta(days=400)
+        db.session.commit()
+        cfg["keep_addresses_months"] = 0
+        assert services.forget_addresses() == 0  # 0 keeps them
+        cfg["keep_addresses_months"] = 12
+        assert services.forget_addresses() == 1
+        db.session.commit()
+    item = db.session.query(LettersItem).one()
+    assert item.address == "" and item.name == "Test Max"
+    sent = client.get(f"{BASE}/letters/{letter['id']}").get_json()["sent"]
+    assert sent[0]["address"] == [] and sent[0]["name"] == "Test Max"

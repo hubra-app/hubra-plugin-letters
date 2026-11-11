@@ -7,6 +7,7 @@ auto_send, so Pingen prints and posts it once its checks pass.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 import urllib.error
@@ -48,7 +49,15 @@ class Config:
         )
 
 
-_tokens: dict[tuple[str, bool], tuple[str, float]] = {}
+# Access tokens, per worker process and so shared by every club it serves.
+# The key holds a hash of the secret too: a club that enters another club's
+# client ID with a wrong secret must not get that club's cached token.
+_tokens: dict[tuple[str, str, bool], tuple[str, float]] = {}
+
+
+def _key(cfg: Config) -> tuple[str, str, bool]:
+    secret = hashlib.sha256(cfg.client_secret.encode()).hexdigest()
+    return (cfg.client_id, secret, cfg.staging)
 
 
 def _request(
@@ -60,6 +69,9 @@ def _request(
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             raw = resp.read()
     except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            # A revoked or expired token: ask for a new one next time.
+            _tokens.clear()
         detail = ""
         try:
             body = json.loads(exc.read() or b"{}")
@@ -86,7 +98,7 @@ def _request(
 
 
 def token(cfg: Config) -> str:
-    key = (cfg.client_id, cfg.staging)
+    key = _key(cfg)
     cached = _tokens.get(key)
     if cached and cached[1] > time.time() + 60:
         return cached[0]
@@ -119,6 +131,9 @@ def send(cfg: Config, pdf: bytes, filename: str) -> str:
     url, signature = attrs.get("url"), attrs.get("url_signature")
     if not url or not signature:
         raise PingenError("Pingen gave no upload address")
+    # Only ever upload over HTTPS (urllib would also open file:// and the like).
+    if urllib.parse.urlsplit(str(url)).scheme != "https":
+        raise PingenError("Pingen gave an upload address that isn't HTTPS")
     _request("PUT", url, data=pdf, headers={"Content-Type": "application/pdf"})
     body = {
         "data": {

@@ -168,31 +168,46 @@ def queue(letter: LettersLetter, people: list[render.Recipient], status: str) ->
     return len(people)
 
 
-def post_queued() -> dict:
-    """Hands queued letters to Pingen, a few per run. Called every minute."""
-    done = {"sent": 0, "failed": 0}
-    items = list(
-        db.session.scalars(
-            select(LettersItem)
-            .where(LettersItem.status == "queued")
-            .order_by(LettersItem.id)
-            .limit(PER_RUN)
-        )
+def _claim(skip: list[int]) -> LettersItem | None:
+    """The next queued letter no other run is working on.
+
+    The row stays locked until this run commits, so a second run of the
+    job (the last one took longer than a minute) skips it instead of
+    posting the same letter twice.
+    """
+    query = select(LettersItem).where(LettersItem.status == "queued")
+    if skip:
+        query = query.where(LettersItem.id.notin_(skip))
+    return db.session.scalar(
+        query.order_by(LettersItem.id).limit(1).with_for_update(skip_locked=True)
     )
-    if not items:
-        return done
+
+
+def post_queued() -> dict:
+    """Hands queued letters to Pingen, a few per run. Called every minute.
+
+    Each letter is committed on its own right after Pingen took it, so a
+    crash half way through doesn't leave posted letters queued to go again.
+    """
+    done = {"sent": 0, "failed": 0}
     cfg = pingen_config()
     head, side = club(), window()
-    letters: dict[int, LettersLetter] = {}
-    for item in items:
-        letter = letters.setdefault(
-            item.letter_id, db.session.get(LettersLetter, item.letter_id)
-        )
+    touched: set[int] = set()
+    seen: list[int] = []
+    while len(seen) < PER_RUN:
+        item = _claim(seen)
+        if item is None:
+            break
+        seen.append(item.id)
+        touched.add(item.letter_id)
+        letter = db.session.get(LettersLetter, item.letter_id)
         item.tries += 1
         item.updated_at = now()
-        if cfg is None:
-            item.status, item.error = "failed", "Pingen is not set up"
+        if cfg is None or letter is None:
+            item.status = "failed"
+            item.error = "Pingen is not set up" if cfg is None else "Letter is gone"
             done["failed"] += 1
+            db.session.commit()
             continue
         lines = item.address.split("\n")
         first, _, last = (lines[0] if lines else "").partition(" ")
@@ -215,9 +230,12 @@ def post_queued() -> dict:
             if item.tries >= MAX_TRIES:
                 item.status = "failed"
                 done["failed"] += 1
-    for letter in letters.values():
+        db.session.commit()
+    for letter_id in touched:
+        letter = db.session.get(LettersLetter, letter_id)
         if (
             letter is not None
+            and letter.status == "sending"
             and db.session.scalar(
                 select(LettersItem.id)
                 .where(LettersItem.letter_id == letter.id)

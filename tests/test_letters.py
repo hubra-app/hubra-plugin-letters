@@ -207,3 +207,59 @@ def test_send_by_post_through_pingen(app, client, db, club, monkeypatch):
     assert after["status"] == "sent" and after["sent"][0]["status"] == "sent"
     assert after["items"] == {"sent": 1}
     assert client.delete(f"{BASE}/letters/{letter['id']}").status_code == 204
+
+
+def test_pingen_token_cache_is_per_secret(monkeypatch):
+    """Another club's client ID with a wrong secret doesn't get its token."""
+    from hubra_letters import pingen
+
+    asked = []
+
+    def fake(method, url, *, data=None, headers=None):
+        asked.append(data)
+        if b"client_secret=right" in data:
+            return {"access_token": "tok-right", "expires_in": 3600}
+        raise pingen.PingenError("Pingen answered HTTP 401")
+
+    pingen._tokens.clear()
+    monkeypatch.setattr(pingen, "_request", fake)
+    right = pingen.Config("shared-id", "right", "org-a")
+    wrong = pingen.Config("shared-id", "guess", "org-b")
+    assert pingen.token(right) == "tok-right"
+    with pytest.raises(pingen.PingenError):
+        pingen.token(wrong)
+    assert len(asked) == 2
+
+
+def test_pingen_upload_only_over_https(monkeypatch):
+    from hubra_letters import pingen
+
+    def fake(method, url, *, data=None, headers=None):
+        if url.endswith("/auth/access-tokens"):
+            return {"access_token": "tok", "expires_in": 3600}
+        if url.endswith("/file-upload"):
+            return {
+                "data": {
+                    "attributes": {"url": "file:///etc/passwd", "url_signature": "s"}
+                }
+            }
+        raise AssertionError(f"unexpected call {method} {url}")
+
+    pingen._tokens.clear()
+    monkeypatch.setattr(pingen, "_request", fake)
+    with pytest.raises(pingen.PingenError, match="HTTPS"):
+        pingen.send(pingen.Config("id", "secret", "org"), b"%PDF", "x.pdf")
+
+
+def test_send_twice_queues_once(app, client, db, club, monkeypatch):
+    from hubra_letters.models import LettersItem
+
+    _pingen(app, monkeypatch)
+    _login(client, "bea@test.ch")
+    letter = client.post(
+        f"{BASE}/letters", json={"subject": "Beitrag", "body": "Hallo"}
+    ).get_json()
+    assert client.post(f"{BASE}/letters/{letter['id']}/send").status_code == 200
+    again = client.post(f"{BASE}/letters/{letter['id']}/send")
+    assert again.status_code == 409 and again.get_json()["error"] == "LETTER_SENT"
+    assert db.session.query(LettersItem).count() == 1

@@ -127,8 +127,14 @@ def _read(letter: LettersLetter, data: dict) -> None:
     letter.updated_at = services.now()
 
 
-def _draft(letter_id: int):
-    letter, err = _get(LettersLetter, letter_id)
+def _draft(letter_id: int, lock: bool = False):
+    """The letter while it is a draft. *lock* holds its row until the commit,
+    so two clicks on "send" can't queue every letter twice."""
+    if lock:
+        letter = db.session.get(LettersLetter, letter_id, with_for_update=True)
+        err = None if letter else api_error("NOT_FOUND", "not found", 404)
+    else:
+        letter, err = _get(LettersLetter, letter_id)
     if err:
         return None, err
     if letter.status != "draft":
@@ -203,10 +209,12 @@ def get_letter(letter_id: int):
 @letters_bp.put("/letters/<int:letter_id>")
 @permission_required("letters", "update", LABEL)
 def update_letter(letter_id: int):
+    member = get_current_member()
     letter, err = _draft(letter_id)
     if err:
         return err
     _read(letter, _body())
+    log_audit(member.id, "letters.update", "LettersLetter", letter.id, letter.subject)
     db.session.commit()
     return jsonify(_detail(letter))
 
@@ -273,7 +281,7 @@ def all_letters(letter_id: int):
 @permission_required("letters", "update", LABEL)
 def mark_printed(letter_id: int):
     member = get_current_member()
-    letter, err = _draft(letter_id)
+    letter, err = _draft(letter_id, lock=True)
     if err:
         return err
     ok, _missing = services.recipients(letter)
@@ -291,7 +299,7 @@ def mark_printed(letter_id: int):
 @permission_required("letters", "update", LABEL)
 def send(letter_id: int):
     member = get_current_member()
-    letter, err = _draft(letter_id)
+    letter, err = _draft(letter_id, lock=True)
     if err:
         return err
     if services.pingen_config() is None:
@@ -320,6 +328,7 @@ def send(letter_id: int):
 @letters_bp.post("/letters/<int:letter_id>/retry")
 @permission_required("letters", "update", LABEL)
 def retry(letter_id: int):
+    member = get_current_member()
     letter, err = _get(LettersLetter, letter_id)
     if err:
         return err
@@ -345,5 +354,12 @@ def retry(letter_id: int):
         )
     if failed:
         letter.status = "sending"
+        log_audit(
+            member.id,
+            "letters.retry",
+            "LettersLetter",
+            letter.id,
+            f"{letter.subject} ({len(failed)})",
+        )
     db.session.commit()
     return jsonify(_detail(letter))

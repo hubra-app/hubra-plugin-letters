@@ -5,7 +5,7 @@ GET    /letters                    newest first
 POST   /letters                    {subject, body, audience, groupId?, memberIds?}
 GET    /letters/<id>               with its recipients (and who has no address)
 PUT    /letters/<id>               same body; only while it is a draft
-DELETE /letters/<id>
+DELETE /letters/<id>                only drafts; sent and printed letters stay
 GET    /letters/<id>/preview.pdf   the letter for one recipient (?member=<id>, else the first)
 POST   /letters/<id>/letters.pdf   builds every letter in one PDF, in the background
 GET    /letters/<id>/letters.pdf   that PDF, once it is ready (see "pdf" in the letter)
@@ -234,8 +234,14 @@ def delete_letter(letter_id: int):
     letter, err = _get(LettersLetter, letter_id)
     if err:
         return err
-    if letter.status == "sending":
-        return api_error("LETTER_SENDING", "Pingen is still posting this letter.", 409)
+    if letter.status != "draft":
+        # Sent and printed letters stay as the record of who got them; their
+        # addresses go after keep_addresses_months (services.forget_addresses).
+        return api_error(
+            "LETTER_KEPT",
+            "Only drafts can be deleted; sent and printed letters stay as a record.",
+            409,
+        )
     log_audit(member.id, "letters.delete", "LettersLetter", letter.id, letter.subject)
     services.drop_pdf(letter)
     # Explicitly: inside a club schema the foreign key's CASCADE doesn't exist.

@@ -233,7 +233,8 @@ def test_send_by_post_through_pingen(app, client, db, club, monkeypatch):
     after = client.get(f"{BASE}/letters/{letter['id']}").get_json()
     assert after["status"] == "sent" and after["sent"][0]["status"] == "sent"
     assert after["items"] == {"sent": 1}
-    assert client.delete(f"{BASE}/letters/{letter['id']}").status_code == 204
+    kept = client.delete(f"{BASE}/letters/{letter['id']}")
+    assert kept.status_code == 409 and kept.get_json()["error"] == "LETTER_KEPT"
 
 
 def test_pingen_token_cache_is_per_secret(monkeypatch):
@@ -344,8 +345,20 @@ def test_deleted_member_and_letter_leave_nothing(app, client, db, club):
     item = db.session.query(LettersItem).one()
     assert (item.member_id, item.name, item.address) == (None, "", "")
 
-    assert client.delete(f"{BASE}/letters/{letter['id']}").status_code == 204
+    # A letter row gone by other means (not the API, which keeps sent ones):
+    # its recipient rows go with the next clean-up.
+    with app.test_request_context():
+        db.session.execute(
+            text("DELETE FROM letters_letters WHERE id = :id"), {"id": letter["id"]}
+        )
+        assert services.purge_orphans() == 1
+        db.session.commit()
     assert db.session.query(LettersItem).count() == 0
+
+    draft = client.post(
+        f"{BASE}/letters", json={"subject": "Entwurf", "body": "x"}
+    ).get_json()
+    assert client.delete(f"{BASE}/letters/{draft['id']}").status_code == 204
 
 
 def test_print_pdf_goes_with_an_edit_and_after_a_week(app, client, db, club, built):

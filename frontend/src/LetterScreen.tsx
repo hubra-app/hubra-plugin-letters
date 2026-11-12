@@ -493,9 +493,7 @@ const ITEM_COLORS: Record<ItemStatus, string> = { queued: 'blue', sent: 'green',
 function Sent({ letter }: { letter: LetterDetail }) {
   const { t } = useT()
   const qc = useQueryClient()
-  const navigate = useNavigate()
   const { busy, run } = useAction()
-  const [deleting, setDeleting] = useState(false)
   const items = letter.sent ?? []
   const failed = items.filter((i) => i.status === 'failed').length
 
@@ -567,27 +565,9 @@ function Sent({ letter }: { letter: LetterDetail }) {
           </Table.Tbody>
         </Table>
       </Paper>
-      {letter.status !== 'sending' && (
-        <Group>
-          <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => setDeleting(true)}>
-            {t('letters.delete')}
-          </Button>
-        </Group>
-      )}
-      <ConfirmModal
-        open={deleting}
-        title={t('letters.deleteTitle')}
-        body={t('letters.deleteSentBody')}
-        confirmLabel={t('letters.delete')}
-        onClose={() => setDeleting(false)}
-        onConfirm={async () => {
-          setDeleting(false)
-          if (await run(() => deleteLetter(letter.id))) {
-            qc.invalidateQueries({ queryKey: QK.list })
-            navigate('/app/letters')
-          }
-        }}
-      />
+      <Text size="xs" c="dimmed">
+        {t('letters.keptHint')}
+      </Text>
     </Stack>
   )
 }

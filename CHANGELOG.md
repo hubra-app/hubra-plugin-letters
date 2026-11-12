@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Only drafts can be deleted. Sent and printed letters stay as the record of
+  who got them; their addresses go after the retention period.
 - The print PDF of every letter is made in the background: "Make print PDF",
   then a notification when it's ready, and the download. Works for clubs with
   thousands of members; the PDF is kept 7 days, deleted earlier when the

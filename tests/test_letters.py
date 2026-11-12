@@ -82,7 +82,27 @@ def _pingen(app, monkeypatch, fail=0):
     return calls
 
 
-def test_write_preview_and_print(client, club):
+@pytest.fixture
+def built(app, db, monkeypatch):
+    """The background build, run right away in the test's club."""
+    from hubra_letters import services
+
+    def run(letter_id):
+        pending.append(letter_id)
+
+    pending: list[int] = []
+    monkeypatch.setattr(services, "_queue", run)
+
+    def finish():
+        with app.test_request_context():
+            while pending:
+                services.build_pdf(pending.pop(0))
+            db.session.commit()
+
+    return finish
+
+
+def test_write_preview_and_print(client, club, built):
     _login(client, "max@test.ch")
     assert client.get(f"{BASE}/letters").status_code == 403
 
@@ -112,9 +132,16 @@ def test_write_preview_and_print(client, club):
         and one.mimetype == "application/pdf"
         and one.data.startswith(b"%PDF")
     )
-    assert client.get(f"{BASE}/letters/{letter['id']}/letters.pdf").data.startswith(
-        b"%PDF"
-    )
+    # The print PDF is built in the background (eager in tests) and kept.
+    path = f"{BASE}/letters/{letter['id']}/letters.pdf"
+    assert client.get(path).get_json()["error"] == "PDF_NOT_READY"
+    asked = client.post(path)
+    assert asked.status_code == 202
+    assert asked.get_json()["pdf"]["status"] == "building"
+    built()
+    pdf = client.get(f"{BASE}/letters/{letter['id']}").get_json()["pdf"]
+    assert pdf["status"] == "ready" and pdf["count"] == 1
+    assert client.get(path).data.startswith(b"%PDF")
 
     picked = client.put(
         f"{BASE}/letters/{letter['id']}",
@@ -319,3 +346,42 @@ def test_deleted_member_and_letter_leave_nothing(app, client, db, club):
 
     assert client.delete(f"{BASE}/letters/{letter['id']}").status_code == 204
     assert db.session.query(LettersItem).count() == 0
+
+
+def test_print_pdf_goes_with_an_edit_and_after_a_week(app, client, db, club, built):
+    from datetime import timedelta
+
+    from hubra.core.models.notification import Notification
+    from hubra_letters import services
+    from hubra_letters.models import LettersLetter
+
+    _login(client, "bea@test.ch")
+    letter = client.post(
+        f"{BASE}/letters", json={"subject": "GV", "body": "Hallo"}
+    ).get_json()
+    path = f"{BASE}/letters/{letter['id']}/letters.pdf"
+    client.post(path)
+    built()
+    assert (
+        db.session.query(Notification)
+        .filter_by(member_id=club["bea"], link=f"/app/letters/{letter['id']}")
+        .count()
+        == 1
+    )
+
+    # Editing the letter makes the PDF stale: it is gone.
+    client.put(
+        f"{BASE}/letters/{letter['id']}", json={"subject": "GV 2", "body": "Hallo"}
+    )
+    assert client.get(path).status_code == 409
+
+    client.post(path)
+    built()
+    row = db.session.get(LettersLetter, letter["id"])
+    row.pdf_at = services.now() - timedelta(days=services.PDF_KEEP_DAYS + 1)
+    db.session.commit()
+    with app.test_request_context():
+        assert services.drop_old_pdfs() == 1
+        db.session.commit()
+    assert client.get(path).status_code == 409
+    assert db.session.get(LettersLetter, letter["id"]).pdf_status is None

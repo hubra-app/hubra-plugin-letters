@@ -7,7 +7,8 @@ GET    /letters/<id>               with its recipients (and who has no address)
 PUT    /letters/<id>               same body; only while it is a draft
 DELETE /letters/<id>
 GET    /letters/<id>/preview.pdf   the letter for one recipient (?member=<id>, else the first)
-GET    /letters/<id>/letters.pdf   every letter in one PDF, to print
+POST   /letters/<id>/letters.pdf   builds every letter in one PDF, in the background
+GET    /letters/<id>/letters.pdf   that PDF, once it is ready (see "pdf" in the letter)
 POST   /letters/<id>/printed       records the letters as printed and posted by hand
 POST   /letters/<id>/send          has Pingen print and post each letter
 POST   /letters/<id>/retry         queues the failed letters again
@@ -68,6 +69,12 @@ def _letter(letter: LettersLetter, counts: dict, names: dict) -> dict:
         "createdAt": _iso(letter.created_at),
         "updatedAt": _iso(letter.updated_at),
         "items": counts,
+        "pdf": {
+            "status": letter.pdf_status,
+            "count": letter.pdf_count,
+            "error": letter.pdf_error,
+            "at": _iso(letter.pdf_at),
+        },
     }
 
 
@@ -214,6 +221,7 @@ def update_letter(letter_id: int):
     if err:
         return err
     _read(letter, _body())
+    services.drop_pdf(letter)
     log_audit(member.id, "letters.update", "LettersLetter", letter.id, letter.subject)
     db.session.commit()
     return jsonify(_detail(letter))
@@ -229,6 +237,7 @@ def delete_letter(letter_id: int):
     if letter.status == "sending":
         return api_error("LETTER_SENDING", "Pingen is still posting this letter.", 409)
     log_audit(member.id, "letters.delete", "LettersLetter", letter.id, letter.subject)
+    services.drop_pdf(letter)
     # Explicitly: inside a club schema the foreign key's CASCADE doesn't exist.
     db.session.execute(delete(LettersItem).where(LettersItem.letter_id == letter.id))
     db.session.delete(letter)
@@ -263,20 +272,37 @@ def preview(letter_id: int):
     )
 
 
+@letters_bp.post("/letters/<int:letter_id>/letters.pdf")
+@permission_required("letters", "update", LABEL)
+def build_all(letter_id: int):
+    member = get_current_member()
+    letter = db.session.get(LettersLetter, letter_id, with_for_update=True)
+    if letter is None:
+        return api_error("NOT_FOUND", "not found", 404)
+    if letter.pdf_status != "building":
+        ok, _missing = services.recipients(letter)
+        if not ok:
+            return api_error(
+                "NO_RECIPIENTS", "No one with a postal address gets this letter.", 409
+            )
+        services.ask_pdf(letter, member.id)
+        log_audit(member.id, "letters.pdf", "LettersLetter", letter.id, letter.subject)
+        db.session.commit()
+    return jsonify(_detail(letter)), 202
+
+
 @letters_bp.get("/letters/<int:letter_id>/letters.pdf")
 @permission_required("letters", "update", LABEL)
 def all_letters(letter_id: int):
     letter, err = _get(LettersLetter, letter_id)
     if err:
         return err
-    ok, _missing = services.recipients(letter)
-    if not ok:
+    data = services.read_pdf(letter)
+    if data is None:
         return api_error(
-            "NO_RECIPIENTS", "No one with a postal address gets this letter.", 409
+            "PDF_NOT_READY", "Build the PDF first; it is not ready yet.", 409
         )
-    return _pdf(
-        render.pdf(services.letters_html(letter, ok)), f"letters-{letter.id}.pdf", False
-    )
+    return _pdf(data, f"letters-{letter.id}.pdf", False)
 
 
 @letters_bp.post("/letters/<int:letter_id>/printed")

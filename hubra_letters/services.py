@@ -15,6 +15,8 @@ from .models import LettersItem, LettersLetter
 
 AUDIENCES = ("no_email", "all", "group", "picked")
 KEEP_MONTHS = 12
+PDF_KEEP_DAYS = 7  # how long a built print PDF (full of addresses) stays
+FILE_OWNER = "letters"
 MAX_TRIES = 3
 PER_RUN = 25
 
@@ -317,4 +319,139 @@ def purge_orphans() -> int:
         ).rowcount
         or 0
     )
+    n += (
+        db.session.execute(
+            update(LettersLetter)
+            .where(LettersLetter.pdf_by.is_not(None))
+            .where(LettersLetter.pdf_by.notin_(members))
+            .values(pdf_by=None)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        or 0
+    )
     return n
+
+
+# ── The print PDF, built in the background ──────────────────────────────────
+
+
+def drop_pdf(letter: LettersLetter) -> None:
+    """Forget the letter's built PDF (the file goes with the commit)."""
+    from hubra.core import files
+
+    if letter.pdf_key:
+        try:
+            files.remove(letter.pdf_key)
+        except files.FileNotFound:
+            pass
+    letter.pdf_status = letter.pdf_key = letter.pdf_error = None
+    letter.pdf_count = letter.pdf_at = None
+
+
+def ask_pdf(letter: LettersLetter, member_id: int) -> None:
+    """Queue the PDF of every letter; the job tells *member_id* when it's ready."""
+    drop_pdf(letter)
+    letter.pdf_status, letter.pdf_by, letter.pdf_at = "building", member_id, now()
+    _queue(letter.id)
+
+
+def _queue(letter_id: int) -> None:
+    """Hands the build to a worker once the request commits (tests replace it)."""
+    from hubra.core.tasks.after_commit import delay_after_commit
+
+    from .tasks import build_pdf as task
+
+    delay_after_commit(task, letter_id)
+
+
+def build_pdf(letter_id: int) -> str:
+    """The job: renders every letter into one PDF and stores it."""
+    from hubra.core import files
+
+    letter = db.session.get(LettersLetter, letter_id, with_for_update=True)
+    if letter is None or letter.pdf_status != "building":
+        return "skipped"
+    ok, _missing = recipients(letter)
+    try:
+        if not ok:
+            raise ValueError("No one with a postal address gets this letter.")
+        data = render.pdf(letters_html(letter, ok))
+        stored = files.put(FILE_OWNER, data, "application/pdf")
+    except files.FileTooLarge:
+        letter.pdf_status = "failed"
+        letter.pdf_error = (
+            "The PDF is larger than the club may store. Send it in parts"
+            " (for example by group) or by post through Pingen."
+        )
+    except Exception as exc:  # noqa: BLE001 - shown to the board, never raised
+        letter.pdf_status = "failed"
+        letter.pdf_error = (
+            str(exc)[:300]
+            if isinstance(exc, ValueError)
+            else "The PDF could not be made."
+        )
+    else:
+        letter.pdf_status, letter.pdf_key = "ready", stored.key
+        letter.pdf_count, letter.pdf_error = len(ok), None
+    letter.pdf_at = now()
+    if letter.pdf_by:
+        _tell(letter)
+    return letter.pdf_status
+
+
+def read_pdf(letter: LettersLetter) -> bytes | None:
+    from hubra.core import files
+
+    if letter.pdf_status != "ready" or not letter.pdf_key:
+        return None
+    try:
+        return files.read(letter.pdf_key)
+    except files.FileNotFound:
+        return None
+
+
+def drop_old_pdfs(today: datetime | None = None) -> int:
+    """Built PDFs hold every address: they go after PDF_KEEP_DAYS."""
+    before = (today or now()) - timedelta(days=PDF_KEEP_DAYS)
+    old = list(
+        db.session.scalars(
+            select(LettersLetter)
+            .where(LettersLetter.pdf_status.in_(("ready", "failed")))
+            .where(LettersLetter.pdf_at < before)
+        )
+    )
+    for letter in old:
+        drop_pdf(letter)
+    return len(old)
+
+
+def _tell(letter: LettersLetter) -> None:
+    """A bell notification for whoever asked for the PDF."""
+    from hubra.core.notifications.services import notify_member
+
+    who = db.session.get(Member, letter.pdf_by)
+    if who is None:
+        return
+    de = (getattr(who, "language", None) or "de").lower().startswith("de")
+    ready = letter.pdf_status == "ready"
+    if ready:
+        title = "Brief-PDF bereit" if de else "Letters PDF ready"
+        msg = (
+            f"«{letter.subject}»: {letter.pdf_count} Briefe zum Drucken."
+            if de
+            else f"“{letter.subject}”: {letter.pdf_count} letters to print."
+        )
+    else:
+        title = "Brief-PDF fehlgeschlagen" if de else "Letters PDF failed"
+        msg = (
+            f"«{letter.subject}»: Details beim Brief."
+            if de
+            else f"“{letter.subject}”: details on the letter."
+        )
+    notify_member(
+        who.id,
+        "success" if ready else "warning",
+        title,
+        msg,
+        link=f"/app/letters/{letter.id}",
+    )

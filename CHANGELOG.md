@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The print PDF of every letter is made in the background: "Make print PDF",
+  then a notification when it's ready, and the download. Works for clubs with
+  thousands of members; the PDF is kept 7 days, deleted earlier when the
+  letter changes. Needs `flask db upgrade` (new columns on letters_letters).
 - Postal addresses of sent letters are deleted after 12 months (setting
   "Keep addresses", 0 keeps them); who got the letter stays. Runs daily.
 - Deleting a letter deletes its recipient list too, and the daily job clears

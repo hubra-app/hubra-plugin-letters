@@ -40,6 +40,15 @@ class LettersLetter(db.Model):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, nullable=False
     )
+    # The print PDF of every letter, built in the background:
+    # building, ready, failed (None: none asked for). The file sits in
+    # Hubra's file store (pdf_key) and is deleted after a few days.
+    pdf_status: Mapped[str | None] = mapped_column(String(10))
+    pdf_key: Mapped[str | None] = mapped_column(String(120))
+    pdf_count: Mapped[int | None] = mapped_column(Integer)
+    pdf_error: Mapped[str | None] = mapped_column(String(300))
+    pdf_by: Mapped[int | None] = mapped_column(Integer)
+    pdf_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class LettersItem(db.Model):

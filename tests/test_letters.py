@@ -398,3 +398,20 @@ def test_print_pdf_goes_with_an_edit_and_after_a_week(app, client, db, club, bui
         db.session.commit()
     assert client.get(path).status_code == 409
     assert db.session.get(LettersLetter, letter["id"]).pdf_status is None
+
+
+def test_the_address_stays_in_the_envelope_window():
+    """The letterhead's margins move the letter, not the window."""
+    from datetime import date
+
+    from hubra_letters import render
+
+    r = render.Recipient(1, "Max", "Test", ["Max Test", "Bahnhofstrasse 12"])
+    head = {"name": "FC Demo", "lines": ["8000 Zürich"], "city": "Zürich"}
+    right = render.letter_html("Hallo {vorname}", "Text", r, head, "right", date(2026, 1, 5))
+    left = render.letter_html("Hallo", "Text", r, head, "left", date(2026, 1, 5))
+    # 118/52 mm and 22/52 mm from the page corner, inside 15 mm / 34 mm margins.
+    assert "left:103mm; top:18mm" in right and "left:7mm; top:18mm" in left
+    assert "<h1>Hallo Max</h1>" in right
+    body = render.document([right])
+    assert body.startswith("<style>") and "<html" not in body

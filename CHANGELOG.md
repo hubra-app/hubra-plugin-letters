@@ -7,8 +7,7 @@
   out through `pdf.render` (hubra#332); the plugin no longer runs WeasyPrint
   itself. The recipient's address stays where the envelope's window is
   (right or left), and the footer shows no page count, since one print file
-  holds every recipient's letter. Needs Hubra 0.2.6 or later (raise `hubra:`
-  in plugin.yaml at release).
+  holds every recipient's letter. Needs Hubra 0.2.6 or later.
 - Only drafts can be deleted. Sent and printed letters stay as the record of
   who got them; their addresses go after the retention period.
 - The print PDF of every letter is made in the background: "Make print PDF",

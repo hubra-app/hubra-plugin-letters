@@ -4,7 +4,7 @@
 
 A plugin for [Hubra](https://hubra.club). Serial letters for members who read no e-mail: the board writes the letter once in Hubra, then prints one PDF for window envelopes or has [Pingen](https://www.pingen.com) print and post each letter.
 
-**Version** 1.0.0 · **Works with** Hubra >=0.2,<1 · **Plugin id** `letters` · **Needs** the members module
+**Version** 1.2.0 · **Works with** Hubra >=0.2.6,<1 · **Plugin id** `letters` · **Needs** the members module
 
 ![Writing a letter](docs/screenshots/editor.png)
 

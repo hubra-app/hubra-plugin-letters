@@ -1,6 +1,6 @@
 id: letters
 name: Letters
-version: "1.1.0"
+version: "1.2.0"
 hubra: ">=0.2.6,<1"
 description: "Serial letters for members without e-mail: written in Hubra, printed as one PDF for window envelopes, or sent by post through Pingen."
 author: Hubra

@@ -1,6 +1,6 @@
 # Letters
 
-## Unreleased
+## 1.2.0
 
 - Letters carry the club's letterhead (logo, name, address, contact line,
   primary colour), the same as invoices and the board's PDFs. Hubra lays them

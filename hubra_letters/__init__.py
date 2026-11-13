@@ -22,6 +22,8 @@ module = Module(
     description="Serial letters as PDF or by post (Pingen)",
     default_enabled=False,
     depends_on=("members",),
+    # The letters on the club's letterhead (render.py).
+    consumes={"pdf.render": ">=1,<2"},
     blueprints=(
         Blueprint("hubra_letters.routes", "letters_bp", "/api/v1/app/letters"),
     ),

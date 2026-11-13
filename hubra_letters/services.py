@@ -223,7 +223,8 @@ def post_queued() -> dict:
                             letter.subject, letter.body, r, head, side, date.today()
                         )
                     ]
-                )
+                ),
+                render.fill(letter.subject, r),
             )
             item.pingen_id = pingen.send(cfg, pdf, f"letter-{letter.id}-{item.id}.pdf")
             item.status, item.error = "sent", None
@@ -375,7 +376,7 @@ def build_pdf(letter_id: int) -> str:
     try:
         if not ok:
             raise ValueError("No one with a postal address gets this letter.")
-        data = render.pdf(letters_html(letter, ok))
+        data = render.pdf(letters_html(letter, ok), letter.subject)
         stored = files.put(FILE_OWNER, data, "application/pdf")
     except files.FileTooLarge:
         letter.pdf_status = "failed"

@@ -272,7 +272,9 @@ def preview(letter_id: int):
             )
         )
     return _pdf(
-        render.pdf(services.letters_html(letter, [pick])),
+        render.pdf(
+            services.letters_html(letter, [pick]), render.fill(letter.subject, pick)
+        ),
         f"letter-{letter.id}-preview.pdf",
         True,
     )

@@ -1,4 +1,11 @@
-"""Letters as HTML and PDF (WeasyPrint), laid out for window envelopes."""
+"""Letters as HTML and PDF, laid out for window envelopes.
+
+Hubra puts them on the club's letterhead (``pdf.render``, docs/contracts.md
+"PDFs" in hubra-app/hubra): logo, name and address at the top of every
+page, the contact line at the bottom. This module writes the letters: the
+sender line and address in the envelope's window, the date, the subject and
+the text.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +22,11 @@ MONTHS_DE = (
 # Where the recipient's address sits (mm from the page's top left corner).
 # Right: Swiss C5/6 envelopes with the window on the right; left: DIN 5008.
 WINDOWS = {"right": (118, 52), "left": (22, 52)}
+# The letterhead's page margins (top, left), from Hubra's templates/pdf/
+# base.html: the letter is placed inside them, the window stays on the page.
+PAGE_TOP, PAGE_LEFT = 34, 15
+# Where the text starts, mm from the top of the page (below the window).
+TEXT_TOP = 105
 
 
 @dataclass
@@ -57,22 +69,20 @@ def _paragraphs(text: str) -> str:
     return "\n".join(out)
 
 
-CSS = """
-@page { size: A4; margin: 0; }
-* { box-sizing: border-box; }
-body { margin: 0; font-family: "DejaVu Sans", "Helvetica", sans-serif; font-size: 10.5pt;
-       line-height: 1.45; color: #111; }
-.letter { position: relative; width: 210mm; min-height: 297mm; padding: 105mm 22mm 25mm 22mm; }
-.letter + .letter { page-break-before: always; }
-.club { position: absolute; top: 18mm; left: 22mm; right: 22mm; font-size: 9pt; color: #444; }
-.club strong { color: #111; font-size: 11pt; }
-.window { position: absolute; width: 85mm; }
-.sender { font-size: 7pt; color: #555; border-bottom: 0.3pt solid #999; padding-bottom: 1mm;
-          margin-bottom: 2mm; white-space: nowrap; overflow: hidden; }
-.address { font-size: 10.5pt; line-height: 1.35; }
-.date { margin-bottom: 8mm; }
-h1 { font-size: 11.5pt; margin: 0 0 6mm; }
-p { margin: 0 0 3.5mm; }
+CSS = f"""
+.letter {{ position: relative; padding-top: {TEXT_TOP - PAGE_TOP}mm; padding-left: 7mm;
+           padding-right: 7mm; font-size: 10.5pt; line-height: 1.45; color: #111; }}
+.letter + .letter {{ page-break-before: always; }}
+.window {{ position: absolute; width: 85mm; }}
+.sender {{ font-size: 7pt; color: #555; border-bottom: 0.3pt solid #999; padding-bottom: 1mm;
+          margin-bottom: 2mm; white-space: nowrap; overflow: hidden; }}
+.address {{ font-size: 10.5pt; line-height: 1.35; }}
+.date {{ margin-bottom: 8mm; }}
+.letter h1 {{ font-size: 11.5pt; margin: 0 0 6mm; }}
+.letter p {{ margin: 0 0 3.5mm; }}
+/* One file holds every recipient's letter: a page count across all of
+   them would read "Seite 7 / 40" to a member. */
+.footer .page {{ display: none; }}
 """
 
 
@@ -84,14 +94,11 @@ def letter_html(
     place = club.get("city")
     when = f"{place}, {long_date(day)}" if place else long_date(day)
     address = "<br>".join(html.escape(x) for x in r.lines)
-    club_block = "<br>".join(
-        [f"<strong>{html.escape(club.get('name') or '')}</strong>"]
-        + [html.escape(x) for x in club.get("lines", [])]
-    )
+    # The window is placed from the page's corner, the letter from the
+    # letterhead's margins.
     return f"""
 <section class="letter">
-  <div class="club">{club_block}</div>
-  <div class="window" style="left:{left}mm; top:{top}mm">
+  <div class="window" style="left:{left - PAGE_LEFT}mm; top:{top - PAGE_TOP}mm">
     <div class="sender">{html.escape(sender)}</div>
     <div class="address">{address}</div>
   </div>
@@ -102,14 +109,18 @@ def letter_html(
 
 
 def document(sections: list[str]) -> str:
-    return f"<!doctype html><html><head><meta charset='utf-8'><style>{CSS}</style></head><body>{''.join(sections)}</body></html>"
+    """The body for ``pdf.render``: the letters and their style."""
+    return f"<style>{CSS}</style>{''.join(sections)}"
 
 
-def pdf(html_text: str) -> bytes:
-    from weasyprint import HTML
-    from weasyprint.urls import URLFetcher
+def pdf(body_html: str, title: str) -> bytes:
+    """The letters on the club's letterhead, laid out by Hubra."""
+    import base64
 
-    # Self-contained: nothing is loaded from disk or the network.
-    return HTML(
-        string=html_text, url_fetcher=URLFetcher(allowed_protocols={"data"})
-    ).write_pdf()
+    from hubra.core.contracts import SYSTEM, call
+
+    # SYSTEM: the route or job already checked who may print the letter.
+    out = call(
+        "pdf.render", title=title[:200] or "Brief", body_html=body_html, actor=SYSTEM
+    )
+    return base64.b64decode(out["pdf_base64"])
